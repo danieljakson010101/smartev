@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'dart:async';
 import 'firebase_options.dart';
 
@@ -513,6 +514,348 @@ class _MainAppState extends State<MainApp> {
     }
   }
 
+  void _startNavigation(ChargingStation station) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (BuildContext context) {
+        return Container(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(Icons.navigation, color: Colors.blue[600], size: 28),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Navigate to Station',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          station.name,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              
+              // Trip Info
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    Column(
+                      children: [
+                        Icon(Icons.route, color: Colors.blue[600], size: 24),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${station.distance.toStringAsFixed(1)} km',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        Text(
+                          'Distance',
+                          style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                        ),
+                      ],
+                    ),
+                    Container(width: 1, height: 40, color: Colors.grey[300]),
+                    Column(
+                      children: [
+                        Icon(Icons.access_time, color: Colors.orange[600], size: 24),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${station.estimatedTime} min',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        Text(
+                          'Est. Time',
+                          style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                        ),
+                      ],
+                    ),
+                    Container(width: 1, height: 40, color: Colors.grey[300]),
+                    Column(
+                      children: [
+                        Icon(Icons.battery_charging_full, color: Colors.green[600], size: 24),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${station.energyRequired}%',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                          ),
+                        ),
+                        Text(
+                          'Energy',
+                          style: TextStyle(color: Colors.grey[600], fontSize: 11),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
+              // Navigation Options
+              _buildNavigationOption(
+                icon: Icons.map,
+                title: 'Google Maps',
+                subtitle: 'Open in Google Maps app',
+                onTap: () {
+                  _openGoogleMaps(station);
+                  Navigator.pop(context);
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildNavigationOption(
+                icon: Icons.location_on,
+                title: 'Waze',
+                subtitle: 'Open in Waze app',
+                onTap: () {
+                  _openWaze(station);
+                  Navigator.pop(context);
+                },
+              ),
+              const SizedBox(height: 12),
+              _buildNavigationOption(
+                icon: Icons.share_location,
+                title: 'Share Location',
+                subtitle: 'Share station location',
+                onTap: () {
+                  _shareLocation(station);
+                  Navigator.pop(context);
+                },
+              ),
+              const SizedBox(height: 24),
+
+              // Cancel Button
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: BorderSide(color: Colors.grey[300]!),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text('Cancel'),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildNavigationOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey[200]!),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: Colors.blue[600], size: 24),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey[400]),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openGoogleMaps(ChargingStation station) async {
+  final String googleMapsUrl = 
+      'https://www.google.com/maps/dir/?api=1&destination=${station.latitude},${station.longitude}&travelmode=driving';
+  
+  final Uri url = Uri.parse(googleMapsUrl);
+  
+  try {
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Opening Google Maps to ${station.name}'),
+            backgroundColor: Colors.green[700],
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } else {
+      throw 'Could not launch $googleMapsUrl';
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open navigation: $e'),
+          backgroundColor: Colors.red[700],
+        ),
+      );
+    }
+  }
+}
+  
+  Future<void> _openWaze(ChargingStation station) async {
+  final String wazeUrl = 
+      'https://waze.com/ul?ll=${station.latitude},${station.longitude}&navigate=yes';
+  
+  final Uri url = Uri.parse(wazeUrl);
+  
+  try {
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Opening Waze to ${station.name}'),
+            backgroundColor: Colors.blue[700],
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } else {
+      throw 'Could not launch $wazeUrl';
+    }
+  } catch (e) {
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open Waze: $e'),
+          backgroundColor: Colors.red[700],
+        ),
+      );
+    }
+  }
+}
+
+  void _shareLocation(ChargingStation station) {
+    final String shareText = '''
+📍 ${station.name}
+${station.address ?? 'Charging Station'}
+
+🔋 ${station.chargerType}
+⚡ ${station.availableChargers}/${station.totalChargers} chargers available
+💰 ${station.pricePerKwh != null ? 'RM ${station.pricePerKwh!.toStringAsFixed(2)}/kWh' : 'Price not available'}
+
+📍 Location: https://www.google.com/maps/search/?api=1&query=${station.latitude},${station.longitude}
+
+Shared via EzCharge ⚡
+    '''.trim();
+
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Share Location'),
+          content: SingleChildScrollView(
+            child: Text(shareText),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Location details copied!'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              },
+              child: const Text('Copy'),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
   Color getBatteryColor() {
     if (batteryLevel > 50) return Colors.green;
     if (batteryLevel > 20) return Colors.orange;
@@ -705,40 +1048,35 @@ class _MainAppState extends State<MainApp> {
     }
   }
 
-  Widget _buildMapTab() {
-    if (_isLoadingStations) {
-      return const Center(child: CircularProgressIndicator());
-    }
+Widget _buildMapTab() {
+  if (_isLoadingStations) {
+    return const Center(child: CircularProgressIndicator());
+  }
 
-    final LatLng center = _currentPosition != null
-        ? LatLng(_currentPosition!.latitude, _currentPosition!.longitude)
-        : const LatLng(3.1390, 101.6869);
-
-    // Check if running on web - show placeholder with list
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // For web or if map fails, show a visual map placeholder with station markers
-        return Column(
-          children: [
-            // Map Placeholder
-            Expanded(
-              flex: 3,
-              child: Container(
-                margin: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.blue[100]!, Colors.green[100]!],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
+  // Show placeholder map for web
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      return Column(
+        children: [
+          // Map Placeholder
+          Expanded(
+            flex: 3,
+            child: Container(
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue[100]!, Colors.green[100]!],
                 ),
-                child: Stack(
-                  children: [
-                    // Mock map background
-                    Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.map, size: 60, color: Colors.blue[600]),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Stack(
+                children: [
+                  // Mock map background
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.map, size: 60, color: Colors.blue[600]),
                           const SizedBox(height: 12),
                           Text(
                             'Map View',
@@ -885,22 +1223,6 @@ class _MainAppState extends State<MainApp> {
     );
   }
 
-  Set<Marker> _buildMarkers() {
-    return chargingStations.map((station) {
-      return Marker(
-        markerId: MarkerId(station.id),
-        position: LatLng(station.latitude, station.longitude),
-        infoWindow: InfoWindow(
-          title: station.name,
-          snippet: '${station.distance} km • ${station.availableChargers}/${station.totalChargers} available',
-        ),
-        icon: BitmapDescriptor.defaultMarkerWithHue(
-          station.availableChargers > 0 ? BitmapDescriptor.hueGreen : BitmapDescriptor.hueRed,
-        ),
-      );
-    }).toSet();
-  }
-
   Widget _buildStationsTab() {
     return SingleChildScrollView(
       child: Padding(
@@ -1022,11 +1344,7 @@ class _MainAppState extends State<MainApp> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Navigation to ${station.name}')),
-                    );
-                  },
+                  onPressed: () => _startNavigation(station),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.blue[600],
                     padding: const EdgeInsets.symmetric(vertical: 12),
